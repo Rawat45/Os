@@ -1,0 +1,119 @@
+#include <stdio.h>
+#include <stdbool.h>
+
+// Structure to represent a process
+struct Process {
+    int id;
+    int at;       // Arrival Time
+    int bt;       // Burst Time
+    int rem_bt;   // Remaining Burst Time
+    int ct;       // Completion Time
+    int tat;      // Turnaround Time
+    int wt;       // Waiting Time
+};
+
+int main() {
+    // Input Data from Question 1(a)
+    int n = 4;
+    int tq = 2; // Time Quantum
+    struct Process p[4] = {
+        {1, 0, 6, 6, 0, 0, 0},
+        {2, 1, 4, 4, 0, 0, 0},
+        {3, 2, 3, 3, 0, 0, 0},
+        {4, 3, 2, 2, 0, 0, 0}
+    };
+
+    // Queue for Round Robin
+    int queue[100];
+    int front = 0, rear = 0;
+    bool in_queue[4] = {false, false, false, false}; // Track if process is in queue/completed
+
+    int current_time = 0;
+    int completed = 0;
+
+    // Initially, add processes that have arrived at time 0
+    for(int i = 0; i < n; i++) {
+        if(p[i].at <= current_time && in_queue[i] == false) {
+            queue[rear++] = i;
+            in_queue[i] = true;
+        }
+    }
+
+    printf("Gantt Chart Execution Order:\n");
+
+    while(completed < n) {
+        if(front == rear) {
+            // Queue is empty, jump to next arrival if any, or just increment time
+            int next_arrival_time = 9999;
+            for(int i=0; i<n; i++) {
+                if(!in_queue[i] && p[i].at < next_arrival_time)
+                    next_arrival_time = p[i].at;
+            }
+            if(next_arrival_time < 9999) current_time = next_arrival_time;
+            else current_time++; // Just in case
+            
+            // Check for arrivals again
+            for(int i = 0; i < n; i++) {
+                if(p[i].at <= current_time && !in_queue[i]) {
+                    queue[rear++] = i;
+                    in_queue[i] = true;
+                }
+            }
+            continue;
+        }
+
+        // Dequeue current process index
+        int idx = queue[front++];
+        
+        // Execute process
+        printf("P%d ", p[idx].id);
+        
+        int time_slice = 0;
+        if(p[idx].rem_bt > tq) {
+            time_slice = tq;
+        } else {
+            time_slice = p[idx].rem_bt;
+        }
+
+        p[idx].rem_bt -= time_slice;
+        current_time += time_slice;
+
+        // Check for new arrivals while this process was executing
+        // Important: Add new arrivals BEFORE re-adding the current process
+        for(int i = 0; i < n; i++) {
+            if(p[i].at <= current_time && p[i].rem_bt > 0 && !in_queue[i]) {
+                queue[rear++] = i;
+                in_queue[i] = true;
+            }
+        }
+
+        // If process is finished
+        if(p[idx].rem_bt == 0) {
+            completed++;
+            p[idx].ct = current_time;
+            p[idx].tat = p[idx].ct - p[idx].at;
+            p[idx].wt = p[idx].tat - p[idx].bt;
+        } else {
+            // Process not finished, re-enqueue
+            queue[rear++] = idx;
+        }
+    }
+
+    printf("\n\nResult Table:\n");
+    printf("--------------------------------------------------\n");
+    printf("Process\tAT\tBT\tCT\tTAT\tWT\n");
+    printf("--------------------------------------------------\n");
+    
+    float avg_tat = 0, avg_wt = 0;
+    for(int i = 0; i < n; i++) {
+        avg_tat += p[i].tat;
+        avg_wt += p[i].wt;
+        printf("P%d\t%d\t%d\t%d\t%d\t%d\n", 
+               p[i].id, p[i].at, p[i].bt, p[i].ct, p[i].tat, p[i].wt);
+    }
+    printf("--------------------------------------------------\n");
+    printf("Average Turnaround Time: %.2f ms\n", avg_tat / n);
+    printf("Average Waiting Time: %.2f ms\n", avg_wt / n);
+
+    return 0;
+}
